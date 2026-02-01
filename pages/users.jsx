@@ -19,38 +19,20 @@ export default function Users() {
   const [error, setError] = useState("");
   const router = useRouter();
 
-  // 🔄 Cargar usuarios al iniciar
+  // 🔄 Cargar usuarios
   const loadUsers = async () => {
     try {
       const res = await api.get("/users");
-
-      // ✅ Detecta si el backend devuelve { data: [...] } o solo [...]
-      const data = res.data?.data || res.data || [];
-
-      if (Array.isArray(data)) {
-        setUsers(data);
-      } else {
-        setUsers([]);
-      }
+      setUsers(res.data);
     } catch (err) {
       console.error("Error al cargar usuarios:", err);
       setError("Error al cargar usuarios");
     }
   };
 
-useEffect(() => {
-  const loadUsers = async () => {
-    try {
-      const res = await api.get("/users");
-      setUsers(res.data);
-    } catch {
-      setError("Error al cargar usuarios");
-    }
-  };
-
-  loadUsers();
-}, []);
-
+  useEffect(() => {
+    loadUsers();
+  }, []);
 
   // ✍️ Manejar cambios del formulario
   const handleChange = (e) =>
@@ -71,13 +53,16 @@ useEffect(() => {
       }
 
       if (editId) {
+        console.log("🛠️ Actualizando usuario con ID:", editId);
         await api.put(`/users/${editId}`, userData);
+        alert("✅ Usuario actualizado correctamente");
         setEditId(null);
       } else {
         await api.post("/users", userData);
+        alert("✅ Usuario registrado correctamente");
       }
 
-      // 🧹 Resetear formulario
+      // 🔄 Resetear formulario
       setForm({
         full_name: "",
         email: "",
@@ -86,7 +71,6 @@ useEffect(() => {
         is_active: 1,
       });
 
-      // 🔄 Recargar lista
       loadUsers();
     } catch (err) {
       console.error("Error al guardar usuario:", err);
@@ -94,28 +78,49 @@ useEffect(() => {
     }
   };
 
-  // ✏️ Editar usuario
+  // ✏️ Editar usuario (corregido)
   const handleEdit = (user) => {
+    console.log("🛠️ Editando usuario:", user);
+
+    // ✅ Asegurar que el ID sea correcto (por si viene como user_id)
+    if (!user.id && user.user_id) {
+      user.id = user.user_id;
+    }
+
+    // ✅ Cargar datos en el formulario sin mostrar la contraseña
     setForm({
-      full_name: user.full_name,
-      email: user.email,
+      full_name: user.full_name || "",
+      email: user.email || "",
       password_hash: "",
-      role: user.role,
-      is_active: user.is_active,
+      role: user.role || "STAFF",
+      is_active: user.is_active ?? 1,
     });
+
+    // ✅ Guardar el ID a editar
     setEditId(user.id);
+
+    alert(`✏️ Editando el usuario: ${user.full_name}`);
   };
 
   // ❌ Eliminar usuario
   const handleDelete = async (id) => {
-    const confirm = window.confirm("¿Seguro que deseas eliminar este usuario?");
-    if (!confirm) return;
+    const confirmDelete = window.confirm(
+      "¿Seguro que deseas eliminar este usuario?"
+    );
+    if (!confirmDelete) return;
+
     try {
-      await api.delete(`/users/${id}`);
+      console.log("🗑️ Eliminando usuario con ID:", id);
+      const res = await api.delete(`/users/${id}`);
+      if (res.status === 200) {
+        alert("✅ Usuario eliminado correctamente");
+      } else {
+        alert("⚠️ No se pudo eliminar el usuario");
+      }
       loadUsers();
     } catch (err) {
       console.error("Error al eliminar usuario:", err);
-      setError("Error al eliminar usuario");
+      alert("❌ Error al eliminar usuario");
     }
   };
 
@@ -144,7 +149,7 @@ useEffect(() => {
       {/* 🧾 Formulario */}
       <div className="bg-[#F5F7EB] text-[#1F2D17] p-6 rounded-xl shadow-md mb-8">
         <h2 className="text-lg font-semibold mb-4">
-          {editId ? "Editar Usuario" : "Registrar Nuevo Usuario"}
+          {editId ? "✏️ Editar Usuario" : "➕ Registrar Nuevo Usuario"}
         </h2>
 
         <form onSubmit={handleSubmit} className="grid gap-3 md:grid-cols-2">
@@ -223,7 +228,7 @@ useEffect(() => {
           <ul className="space-y-2">
             {filteredUsers.map((u) => (
               <li
-                key={u.id}
+                key={u.id || u.user_id}
                 className="border-b border-[#A6C48A] pb-2 flex justify-between items-center"
               >
                 <div>
@@ -243,12 +248,12 @@ useEffect(() => {
                 <div className="space-x-2">
                   <Button
                     onClick={() => handleEdit(u)}
-                    className="bg-[#A6C48A] text-[#1F2D17]"
+                    className="bg-[#A6C48A] hover:bg-[#90B270] text-[#1F2D17]"
                   >
                     Editar
                   </Button>
                   <Button
-                    onClick={() => handleDelete(u.id)}
+                    onClick={() => handleDelete(u.id || u.user_id)}
                     className="bg-red-500 hover:bg-red-600 text-white"
                   >
                     Eliminar

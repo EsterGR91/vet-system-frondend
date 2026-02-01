@@ -31,7 +31,7 @@ export default function LoginPage() {
       className="flex h-screen items-center justify-center bg-gradient-to-b from-[#3D5B37] via-[#456E3E] to-[#2E4627] text-[#1F2D17] relative"
       style={{ fontFamily: "'Poppins', sans-serif" }}
     >
-      {/* 🌿 Fondo con textura */}
+      {/*  Fondo con textura */}
       <div
         className="absolute inset-0 bg-[url('/images/bg-leaves.jpg')] bg-cover bg-center opacity-10"
       ></div>

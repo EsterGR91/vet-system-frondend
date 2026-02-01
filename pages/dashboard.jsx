@@ -23,7 +23,7 @@ export default function Dashboard() {
 
   return (
     <>
-      {/* 🌿 Fuente refinada */}
+      {/*  Fuente refinada */}
       <Head>
         <link
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Poppins:wght@300;400;500;600&display=swap"
@@ -50,7 +50,7 @@ export default function Dashboard() {
               className="w-20 h-20 rounded-full border-2 border-[#E8FFC8] shadow-[0_0_20px_#A6C48A] mb-2 transition-transform hover:scale-105"
             />
             <h1 className="text-3xl font-semibold tracking-wide drop-shadow-sm">
-              Bienvenido a <span className="text-[#E8FFC8]">PetNice</span> 🐾
+              Bienvenido a <span className="text-[#E8FFC8]">PetNice</span> 
             </h1>
             <p className="text-sm font-medium text-[#F5F7EB]/90 mt-1">
               Administrador Veterinario —{" "}
@@ -100,7 +100,7 @@ export default function Dashboard() {
         <footer className="relative z-10 w-full bg-[#4E8A45]/95 backdrop-blur-sm py-5 px-10 text-sm text-[#E8FFC8] shadow-[0_-4px_20px_rgba(0,0,0,0.3)] text-left border-t border-[#A6C48A]/30">
           <p className="mb-1">
             Sistema de gestión veterinaria{" "}
-            <span className="text-white font-semibold">PetNice</span> 🐾
+            <span className="text-white font-semibold">PetNice</span> 
           </p>
           <p>
             Desarrollado por{" "}

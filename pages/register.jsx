@@ -40,7 +40,7 @@ export default function RegisterPage() {
               className="w-16 h-16 rounded-full mb-3 shadow-md border-2 border-[#A6C48A]"
             />
             <h2 className="text-2xl font-semibold text-center">
-              🩺 Crear Cuenta
+               Crear Cuenta
             </h2>
           </div>
 

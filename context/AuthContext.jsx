@@ -1,58 +1,73 @@
-import { createContext, useState, useEffect, useContext } from "react";
-import { jwtDecode } from "jwt-decode";
-import api from "../utils/api";
+"use client";
+import { createContext, useContext, useState } from "react";
 
 const AuthContext = createContext();
 
-export function AuthProvider({ children }) {
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
+  // =========================
+  // REGISTRO
+  // =========================
+  const register = async (full_name, email, password) => {
+    const res = await fetch("http://localhost:3000/api/auth/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: full_name, // 🔥 CLAVE
+        email,
+        password,
+      }),
+    });
 
-    try {
-      const decoded = jwtDecode(token);
-      const isExpired = decoded.exp * 1000 < Date.now();
+    const data = await res.json();
 
-      if (isExpired) {
-        localStorage.removeItem("token");
-        setUser(null);
-      } else {
-        setUser(decoded);
-      }
-    } catch (error) {
-      console.error("Error decodificando token:", error);
-      localStorage.removeItem("token");
-      setUser(null);
+    if (!res.ok) {
+      throw new Error(data.msg || "Error al registrar");
     }
-  }, []);
 
+    return data;
+  };
+
+  // =========================
+  // LOGIN
+  // =========================
   const login = async (email, password) => {
-    const { data } = await api.post("/auth/login", { email, password });
+    const res = await fetch("http://localhost:3000/api/auth/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.msg || "Error al iniciar sesión");
+    }
+
     localStorage.setItem("token", data.token);
     setUser(data.user);
-    return data.user;
+
+    return data;
   };
 
-  const register = async (full_name, email, password) => {
-    await api.post("/auth/register", { full_name, email, password });
-  };
-
+  // =========================
+  // LOGOUT
+  // =========================
   const logout = () => {
     localStorage.removeItem("token");
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider
-      value={{ user, login, register, logout, isAuthenticated: !!user }}
-    >
+    <AuthContext.Provider value={{ user, register, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
 export const useAuth = () => useContext(AuthContext);
-
-

@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }) => {
   // LOGIN
   // =========================
   const login = async (email, password) => {
-    const res = await fetch("http://localhost:3000/api/auth/login", {
+    const res = await fetch("https://backend-adyb.onrender.com/api/auth/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

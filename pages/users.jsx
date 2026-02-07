@@ -20,18 +20,18 @@ export default function Users() {
   const router = useRouter();
 
   // 🔄 Cargar usuarios
-  const loadUsers = async () => {
+   
+
+  useEffect(() => {
+    async () => {
     try {
-      const res = await api.get("/users");
+      const res = await api.get("api/users/");
       setUsers(res.data);
     } catch (err) {
       console.error("Error al cargar usuarios:", err);
       setError("Error al cargar usuarios");
     }
   };
-
-  useEffect(() => {
-    loadUsers();
   }, []);
 
   // ✍️ Manejar cambios del formulario
@@ -42,40 +42,25 @@ export default function Users() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    try {
-      let userData = { ...form };
+    const res = await fetch("https://backend-adyb.onrender.com/api/user/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...form ,
+        password:form.password_hash
+      }),
+    });
 
-      // 🔒 Encriptar la contraseña antes de enviarla
-      if (form.password_hash) {
-        const salt = await bcrypt.genSalt(10);
-        const hashed = await bcrypt.hash(form.password_hash, salt);
-        userData.password_hash = hashed;
-      }
+    const data = await res.json();
 
-      if (editId) {
-        console.log("🛠️ Actualizando usuario con ID:", editId);
-        await api.put(`/users/${editId}`, userData);
-        alert("✅ Usuario actualizado correctamente");
-        setEditId(null);
-      } else {
-        await api.post("/users", userData);
-        alert("✅ Usuario registrado correctamente");
-      }
-
-      // 🔄 Resetear formulario
-      setForm({
-        full_name: "",
-        email: "",
-        password_hash: "",
-        role: "STAFF",
-        is_active: 1,
-      });
-
-      loadUsers();
-    } catch (err) {
-      console.error("Error al guardar usuario:", err);
-      setError("Error al guardar usuario");
+    if (!res.ok) {
+      setError(data.msg || "Error al registrar usuario");
+      return;
     }
+
+    router.push("/users"); // o "/login"
   };
 
   // ✏️ Editar usuario (corregido)

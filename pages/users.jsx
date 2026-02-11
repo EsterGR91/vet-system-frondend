@@ -1,16 +1,16 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import api from "../utils/api";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import bcrypt from "bcryptjs";
 
 export default function Users() {
   const [users, setUsers] = useState([]);
   const [form, setForm] = useState({
     full_name: "",
     email: "",
-    password_hash: "",
+    password: "",
     role: "STAFF",
     is_active: 1,
   });
@@ -19,75 +19,92 @@ export default function Users() {
   const [error, setError] = useState("");
   const router = useRouter();
 
-  // 🔄 Cargar usuarios
-   
-
+  // ===============================
+  // 🔄 Cargar usuarios (VERSIÓN CORRECTA)
+  // ===============================
   useEffect(() => {
-    async () => {
+    const fetchUsers = async () => {
+      try {
+        const res = await api.get("/api/user");
+        setUsers(res.data);
+      } catch (err) {
+        console.error("Error al cargar usuarios:", err);
+        setError("Error al cargar usuarios");
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  const loadUsers = async () => {
     try {
-      const res = await api.get("api/users/");
+      const res = await api.get("/api/user");
       setUsers(res.data);
     } catch (err) {
       console.error("Error al cargar usuarios:", err);
       setError("Error al cargar usuarios");
     }
   };
-  }, []);
 
-  // ✍️ Manejar cambios del formulario
-  const handleChange = (e) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
+  // ===============================
+  // ✍️ Manejar cambios
+  // ===============================
+  const handleChange = (e) => {
+    const { name, value } = e.target;
 
-  // 💾 Guardar o actualizar usuario
+    setForm({
+      ...form,
+      [name]: name === "is_active" ? Number(value) : value,
+    });
+  };
+
+  // ===============================
+  // 💾 Guardar o actualizar
+  // ===============================
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const res = await fetch("https://backend-adyb.onrender.com/api/user/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        ...form ,
-        password:form.password_hash
-      }),
-    });
+    try {
+      if (editId) {
+        await api.put(`/api/user/${editId}`, form);
+      } else {
+        await api.post("/api/user", form);
+      }
 
-    const data = await res.json();
+      setForm({
+        full_name: "",
+        email: "",
+        password: "",
+        role: "STAFF",
+        is_active: 1,
+      });
 
-    if (!res.ok) {
-      setError(data.msg || "Error al registrar usuario");
-      return;
+      setEditId(null);
+      loadUsers();
+    } catch (err) {
+      console.error("Error al guardar usuario:", err);
+      setError("Error al guardar usuario");
     }
-
-    router.push("/users"); // o "/login"
   };
 
-  // ✏️ Editar usuario (corregido)
+  // ===============================
+  // ✏️ Editar
+  // ===============================
   const handleEdit = (user) => {
-    console.log("🛠️ Editando usuario:", user);
-
-    // ✅ Asegurar que el ID sea correcto (por si viene como user_id)
-    if (!user.id && user.user_id) {
-      user.id = user.user_id;
-    }
-
-    // ✅ Cargar datos en el formulario sin mostrar la contraseña
     setForm({
       full_name: user.full_name || "",
       email: user.email || "",
-      password_hash: "",
+      password: "",
       role: user.role || "STAFF",
       is_active: user.is_active ?? 1,
     });
 
-    // ✅ Guardar el ID a editar
-    setEditId(user.id);
-
-    alert(`✏️ Editando el usuario: ${user.full_name}`);
+    setEditId(user._id);
   };
 
-  // ❌ Eliminar usuario
+  // ===============================
+  // ❌ Eliminar
+  // ===============================
   const handleDelete = async (id) => {
     const confirmDelete = window.confirm(
       "¿Seguro que deseas eliminar este usuario?"
@@ -95,21 +112,17 @@ export default function Users() {
     if (!confirmDelete) return;
 
     try {
-      console.log("🗑️ Eliminando usuario con ID:", id);
-      const res = await api.delete(`/users/${id}`);
-      if (res.status === 200) {
-        alert("✅ Usuario eliminado correctamente");
-      } else {
-        alert("⚠️ No se pudo eliminar el usuario");
-      }
+      await api.delete(`/api/user/${id}`);
       loadUsers();
     } catch (err) {
       console.error("Error al eliminar usuario:", err);
-      alert("❌ Error al eliminar usuario");
+      setError("Error al eliminar usuario");
     }
   };
 
-  // 🔍 Filtrar usuarios
+  // ===============================
+  // 🔍 Filtrar
+  // ===============================
   const filteredUsers = users.filter(
     (u) =>
       u.full_name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -118,12 +131,11 @@ export default function Users() {
   );
 
   return (
-    <div className="min-h-screen bg-[#3D5B37] text-white p-6 font-[Poppins]">
+    <div className="min-h-screen bg-[#3D5B37] text-white p-6">
       <h1 className="text-3xl font-bold mb-6 text-[#D4EDC1]">
         👩‍💻 Gestión de Usuarios
       </h1>
 
-      {/* 🔙 Volver */}
       <Button
         onClick={() => router.push("/dashboard")}
         className="bg-[#A6C48A] hover:bg-[#90B270] text-[#1F2D17] mb-6 font-semibold"
@@ -131,10 +143,16 @@ export default function Users() {
         ← Volver al Dashboard
       </Button>
 
-      {/* 🧾 Formulario */}
+      {error && (
+        <div className="bg-red-500 text-white p-2 rounded mb-4">
+          {error}
+        </div>
+      )}
+
+      {/* FORMULARIO */}
       <div className="bg-[#F5F7EB] text-[#1F2D17] p-6 rounded-xl shadow-md mb-8">
         <h2 className="text-lg font-semibold mb-4">
-          {editId ? "✏️ Editar Usuario" : "➕ Registrar Nuevo Usuario"}
+          {editId ? "Editar Usuario" : "Registrar Nuevo Usuario"}
         </h2>
 
         <form onSubmit={handleSubmit} className="grid gap-3 md:grid-cols-2">
@@ -149,6 +167,7 @@ export default function Users() {
 
           <input
             name="email"
+            type="email"
             placeholder="Correo electrónico"
             value={form.email}
             onChange={handleChange}
@@ -157,10 +176,10 @@ export default function Users() {
           />
 
           <input
-            name="password_hash"
+            name="password"
             type="password"
             placeholder="Contraseña"
-            value={form.password_hash}
+            value={form.password}
             onChange={handleChange}
             required={!editId}
             className="p-2 rounded border border-[#A6C48A]"
@@ -195,7 +214,7 @@ export default function Users() {
         </form>
       </div>
 
-      {/* 🔎 Buscador */}
+      {/* BUSCADOR */}
       <input
         type="text"
         placeholder="Buscar por nombre, correo o rol..."
@@ -204,41 +223,44 @@ export default function Users() {
         className="p-2 rounded w-full mb-4 text-[#1F2D17] border border-[#A6C48A]"
       />
 
-      {/* 📋 Listado */}
+      {/* LISTADO */}
       <div className="bg-[#F5F7EB] text-[#1F2D17] p-6 rounded-xl shadow-md">
         <h2 className="text-lg font-semibold mb-3">Usuarios Registrados</h2>
+
         {filteredUsers.length === 0 ? (
           <p>No hay usuarios registrados.</p>
         ) : (
           <ul className="space-y-2">
             {filteredUsers.map((u) => (
               <li
-                key={u.id || u.user_id}
+                key={u._id}
                 className="border-b border-[#A6C48A] pb-2 flex justify-between items-center"
               >
                 <div>
-                  <strong>{u.full_name}</strong> 👩‍💻 ({u.role}) —{" "}
+                  <strong>{u.full_name}</strong> ({u.role}) —
                   <span
-                    className={u.is_active ? "text-green-700" : "text-red-600"}
+                    className={
+                      u.is_active
+                        ? "text-green-700 ml-2"
+                        : "text-red-600 ml-2"
+                    }
                   >
                     {u.is_active ? "Activo" : "Inactivo"}
                   </span>
                   <br />
                   <span className="text-sm text-[#555]">{u.email}</span>
-                  <br />
-                  <span className="text-sm text-[#4E8A45] font-medium">
-                    Contraseña: 🔒 Encriptada (bcrypt)
-                  </span>
                 </div>
+
                 <div className="space-x-2">
                   <Button
                     onClick={() => handleEdit(u)}
-                    className="bg-[#A6C48A] hover:bg-[#90B270] text-[#1F2D17]"
+                    className="bg-[#A6C48A] text-[#1F2D17]"
                   >
                     Editar
                   </Button>
+
                   <Button
-                    onClick={() => handleDelete(u.id || u.user_id)}
+                    onClick={() => handleDelete(u._id)}
                     className="bg-red-500 hover:bg-red-600 text-white"
                   >
                     Eliminar

@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import api from "../utils/api";
@@ -8,94 +9,114 @@ export default function Appointments() {
   const [appointments, setAppointments] = useState([]);
   const [patients, setPatients] = useState([]);
   const [form, setForm] = useState({
-    patient_id: "",
+    patient: "",
     scheduled_for: "",
     status: "PENDING",
     notes: "",
   });
   const [editId, setEditId] = useState(null);
-  const [search, setSearch] = useState("");
+  const [error, setError] = useState("");
   const router = useRouter();
 
-  const loadData = async () => {
-    try {
-      const [a, p] = await Promise.all([
-        api.get("/appointments"),
-        api.get("/patients"),
-      ]);
-      setAppointments(a.data);
-      setPatients(p.data);
-    } catch (error) {
-      console.error("Error al cargar datos:", error);
-    }
-  };
+  // 🔄 CARGAR DATOS
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [a, p] = await Promise.all([
+          api.get("/api/appointments"),
+          api.get("/api/patients"),
+        ]);
 
- useEffect(() => {
-  const loadData = async () => {
-    try {
-      const [a, p] = await Promise.all([
-        api.get("/appointments"),
-        api.get("/patients")
-      ]);
-      setTimeout(() => {
         setAppointments(a.data);
         setPatients(p.data);
-      }, 0);
+        setError("");
+      } catch (err) {
+        console.error(err);
+        setError("Error al cargar datos");
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const reloadData = async () => {
+    try {
+      const [a, p] = await Promise.all([
+        api.get("/api/appointments"),
+        api.get("/api/patients"),
+      ]);
+
+      setAppointments(a.data);
+      setPatients(p.data);
     } catch (err) {
       console.error(err);
-      setTimeout(() => setError("Error al cargar datos"), 0);
     }
   };
-  loadData();
-}, []);
 
+  // ✍️ HANDLE CHANGE
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: value });
+  };
 
-
-  const handleChange = (e) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
-
+  // 💾 CREAR / ACTUALIZAR
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     try {
       if (editId) {
-        await api.put(`/appointments/${editId}`, form);
-        setEditId(null);
+        await api.put(`/api/appointments/${editId}`, form);
       } else {
-        await api.post("/appointments", form);
+        await api.post("/api/appointments", form);
       }
-      setForm({ patient_id: "", scheduled_for: "", status: "PENDING", notes: "" });
-      loadData();
-    } catch {
+
+      setForm({
+        patient: "",
+        scheduled_for: "",
+        status: "PENDING",
+        notes: "",
+      });
+
+      setEditId(null);
+      reloadData();
+    } catch (err) {
+      console.error(err.response?.data || err);
       alert("Error al guardar cita");
     }
   };
 
+  // ✏️ EDITAR
   const handleEdit = (a) => {
     setForm({
-      patient_id: a.patient_id,
-      scheduled_for: a.scheduled_for.split("T")[0],
+      patient: a.patient?._id || a.patient,
+      scheduled_for: a.scheduled_for
+        ? new Date(a.scheduled_for).toISOString().slice(0, 16)
+        : "",
       status: a.status,
       notes: a.notes || "",
     });
-    setEditId(a.id);
+
+    setEditId(a._id);
   };
 
+  // ❌ ELIMINAR
   const handleDelete = async (id) => {
-    const confirm = window.confirm("¿Eliminar esta cita?");
-    if (!confirm) return;
-    await api.delete(`/appointments/${id}`);
-    loadData();
-  };
+    if (!window.confirm("¿Eliminar esta cita?")) return;
 
-  const filteredAppointments = appointments.filter(
-    (a) =>
-      a.Patient?.name?.toLowerCase().includes(search.toLowerCase()) ||
-      a.status.toLowerCase().includes(search.toLowerCase())
-  );
+    try {
+      await api.delete(`/api/appointments/${id}`);
+      reloadData();
+    } catch (err) {
+      console.error(err);
+      alert("Error al eliminar cita");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#3D5B37] text-white p-6">
-      <h1 className="text-3xl font-bold mb-6 text-[#D4EDC1]">📅 Gestión de Citas</h1>
+      <h1 className="text-3xl font-bold mb-6 text-[#D4EDC1]">
+        📅 Gestión de Citas
+      </h1>
 
       <Button
         onClick={() => router.push("/dashboard")}
@@ -104,19 +125,31 @@ export default function Appointments() {
         ← Volver al Dashboard
       </Button>
 
-      <form onSubmit={handleSubmit} className="grid gap-3 md:grid-cols-2 bg-[#F5F7EB] text-[#1F2D17] p-6 rounded-xl mb-6">
+      {error && (
+        <div className="bg-red-500 text-white p-2 rounded mb-4">
+          {error}
+        </div>
+      )}
+
+      <form
+        onSubmit={handleSubmit}
+        className="grid gap-3 md:grid-cols-2 bg-[#F5F7EB] text-[#1F2D17] p-6 rounded-xl mb-6"
+      >
         <select
-          name="patient_id"
-          value={form.patient_id}
+          name="patient"
+          value={form.patient}
           onChange={handleChange}
           required
           className="p-2 rounded border border-[#A6C48A]"
         >
           <option value="">Seleccione paciente</option>
           {patients.map((p) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
+            <option key={p._id} value={p._id}>
+              {p.name}
+            </option>
           ))}
         </select>
+
         <input
           type="datetime-local"
           name="scheduled_for"
@@ -125,6 +158,7 @@ export default function Appointments() {
           required
           className="p-2 rounded border border-[#A6C48A]"
         />
+
         <select
           name="status"
           value={form.status}
@@ -135,6 +169,7 @@ export default function Appointments() {
           <option value="COMPLETED">Completada</option>
           <option value="CANCELLED">Cancelada</option>
         </select>
+
         <textarea
           name="notes"
           placeholder="Notas"
@@ -142,33 +177,49 @@ export default function Appointments() {
           onChange={handleChange}
           className="p-2 rounded border border-[#A6C48A] md:col-span-2"
         />
-        <Button type="submit" className="bg-[#A6C48A] hover:bg-[#90B270] text-[#1F2D17] font-semibold md:col-span-2">
+
+        <Button
+          type="submit"
+          className="bg-[#A6C48A] hover:bg-[#90B270] text-[#1F2D17] font-semibold md:col-span-2"
+        >
           {editId ? "Actualizar Cita" : "Registrar Cita"}
         </Button>
       </form>
 
-      <input
-        type="text"
-        placeholder="Buscar por paciente o estado..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="p-2 rounded w-full mb-4 text-[#1F2D17] border border-[#A6C48A]"
-      />
-
       <div className="bg-[#F5F7EB] text-[#1F2D17] p-6 rounded-xl">
-        <h2 className="text-lg font-semibold mb-4">Citas Registradas</h2>
-        {filteredAppointments.length === 0 ? (
+        <h2 className="text-lg font-semibold mb-4">
+          Citas Registradas
+        </h2>
+
+        {appointments.length === 0 ? (
           <p>No hay citas registradas.</p>
         ) : (
           <ul className="space-y-2">
-            {filteredAppointments.map((a) => (
-              <li key={a.id} className="border-b border-[#A6C48A] pb-2 flex justify-between items-center">
+            {appointments.map((a) => (
+              <li
+                key={a._id}
+                className="border-b border-[#A6C48A] pb-2 flex justify-between items-center"
+              >
                 <div>
-                  <strong>{a.Patient?.name}</strong> — {a.status} 📆 {new Date(a.scheduled_for).toLocaleString()}
+                  <strong>{a.patient?.name || "Paciente"}</strong> —{" "}
+                  {a.status} 📆{" "}
+                  {new Date(a.scheduled_for).toLocaleString()}
                 </div>
+
                 <div className="space-x-2">
-                  <Button onClick={() => handleEdit(a)} className="bg-[#A6C48A] text-[#1F2D17]">Editar</Button>
-                  <Button onClick={() => handleDelete(a.id)} className="bg-red-600 hover:bg-red-700 text-white">Eliminar</Button>
+                  <Button
+                    onClick={() => handleEdit(a)}
+                    className="bg-[#A6C48A] text-[#1F2D17]"
+                  >
+                    Editar
+                  </Button>
+
+                  <Button
+                    onClick={() => handleDelete(a._id)}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    Eliminar
+                  </Button>
                 </div>
               </li>
             ))}

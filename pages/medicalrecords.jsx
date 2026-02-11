@@ -1,19 +1,18 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import api from "../utils/api";
 import { useRouter } from "next/navigation";
 
-export default function MedicalRecords() {
-  const [records, setRecords] = useState([]);
+export default function Appointments() {
+  const [appointments, setAppointments] = useState([]);
   const [patients, setPatients] = useState([]);
   const [form, setForm] = useState({
-    patient_id: "",
+    patient: "",
     record_date: "",
+    status: "PENDING",
     reason: "",
-    symptoms: "",
-    diagnosis: "",
-    treatment: "",
     vet_notes: "",
   });
   const [editId, setEditId] = useState(null);
@@ -21,91 +20,119 @@ export default function MedicalRecords() {
   const [error, setError] = useState("");
   const router = useRouter();
 
-  // 🔹 Carga inicial de fichas y pacientes
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [r, p] = await Promise.all([
-          api.get("/records"), // ✅ usa /records (tabla correcta: medical_records)
-          api.get("/patients"),
-        ]);
-
-        setTimeout(() => {
-          setRecords(r.data);
-          setPatients(p.data);
-        }, 0);
-      } catch (error) {
-        console.error("Error al cargar datos:", error);
-        setTimeout(() => setError("Error al cargar fichas médicas"), 0);
-      }
-    };
-    loadData();
-  }, []); 
-
-  // 🔹 Manejo de cambios en formulario
-  const handleChange = (e) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
-
-  // 🔹 Crear o actualizar registro
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // ===============================
+  // 🔄 CARGAR DATOS
+  // ===============================
+  const fetchData = async () => {
     try {
-      if (editId) {
-        await api.put(`/records/${editId}`, form);
-        setEditId(null);
-      } else {
-        await api.post("/records", form);
-      }
-      setForm({
-        patient_id: "",
-        record_date: "",
-        reason: "",
-        symptoms: "",
-        diagnosis: "",
-        treatment: "",
-        vet_notes: "",
-      });
-      // recargar datos
-      const { data } = await api.get("/records");
-      setRecords(data);
-    } catch {
-      alert("❌ Error al guardar el registro médico");
+      const [a, p] = await Promise.all([
+        api.get("/api/appointments"),
+        api.get("/api/patients"),
+      ]);
+
+      setAppointments(a.data);
+      setPatients(p.data);
+      setError("");
+    } catch (err) {
+      console.error(err);
+      setError("Error al cargar datos");
     }
   };
 
-  // 🔹 Editar registro
-  const handleEdit = (r) => {
+useEffect(() => {
+  const load = async () => {
+    await fetchData();
+  };
+
+  load();
+}, []);
+
+  const reloadData = async () => {
+    await fetchData();
+  };
+
+  // ===============================
+  // ✍️ HANDLE CHANGE
+  // ===============================
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: value });
+  };
+
+  // ===============================
+  // 💾 CREAR / ACTUALIZAR
+  // ===============================
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      if (editId) {
+        await api.put(`/api/appointments/${editId}`, form);
+      } else {
+        await api.post("/api/appointments", form);
+      }
+
+      setForm({
+        patient: "",
+        record_date: "",
+        status: "PENDING",
+        reason: "",
+        vet_notes: "",
+      });
+
+      setEditId(null);
+      reloadData();
+    } catch (err) {
+      console.error(err.response?.data || err);
+      alert("Error al guardar cita");
+    }
+  };
+
+  // ===============================
+  // ✏️ EDITAR
+  // ===============================
+  const handleEdit = (a) => {
     setForm({
-      patient_id: r.patient_id,
-      record_date: r.record_date?.split("T")[0] || "",
-      reason: r.reason || "",
-      symptoms: r.symptoms || "",
-      diagnosis: r.diagnosis || "",
-      treatment: r.treatment || "",
-      vet_notes: r.vet_notes || "",
+      patient: a.patient?._id || a.patient,
+      record_date: a.record_date
+        ? new Date(a.record_date).toISOString().slice(0, 16)
+        : "",
+      status: a.status,
+      reason: a.reason || "",
+      vet_notes: a.vet_notes || "",
     });
-    setEditId(r.id);
+
+    setEditId(a._id);
   };
 
-  // 🔹 Eliminar registro
+  // ===============================
+  // ❌ ELIMINAR
+  // ===============================
   const handleDelete = async (id) => {
-    if (!window.confirm("¿Eliminar este registro médico?")) return;
-    await api.delete(`/records/${id}`);
-    const { data } = await api.get("/records");
-    setRecords(data);
+    if (!window.confirm("¿Eliminar esta cita?")) return;
+
+    try {
+      await api.delete(`/api/appointments/${id}`);
+      reloadData();
+    } catch (err) {
+      console.error(err);
+      alert("Error al eliminar cita");
+    }
   };
 
-  // 🔹 Filtro de búsqueda (admite Patient o patient)
-  const filteredRecords = records.filter((r) =>
-    (r.Patient?.name || r.patient?.name || "")
-      .toLowerCase()
-      .includes(search.toLowerCase())
+  // ===============================
+  // 🔍 FILTRO
+  // ===============================
+  const filteredAppointments = appointments.filter(
+    (a) =>
+      a.patient?.name?.toLowerCase().includes(search.toLowerCase()) ||
+      a.status?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <div className="min-h-screen bg-[#3D5B37] text-white p-6">
       <h1 className="text-3xl font-bold mb-6 text-[#D4EDC1]">
-        🩺 Historial Médico
+        📅 Gestión de Citas
       </h1>
 
       <Button
@@ -115,28 +142,34 @@ export default function MedicalRecords() {
         ← Volver al Dashboard
       </Button>
 
-      {/* 🧾 Formulario de creación/edición */}
+      {error && (
+        <div className="bg-red-500 text-white p-2 rounded mb-4">
+          {error}
+        </div>
+      )}
+
+      {/* FORM */}
       <form
         onSubmit={handleSubmit}
         className="grid gap-3 md:grid-cols-2 bg-[#F5F7EB] text-[#1F2D17] p-6 rounded-xl mb-6"
       >
         <select
-          name="patient_id"
-          value={form.patient_id}
+          name="patient"
+          value={form.patient}
           onChange={handleChange}
           required
           className="p-2 rounded border border-[#A6C48A]"
         >
           <option value="">Seleccione paciente</option>
           {patients.map((p) => (
-            <option key={p.id} value={p.id}>
+            <option key={p._id} value={p._id}>
               {p.name}
             </option>
           ))}
         </select>
 
         <input
-          type="date"
+          type="datetime-local"
           name="record_date"
           value={form.record_date}
           onChange={handleChange}
@@ -144,34 +177,22 @@ export default function MedicalRecords() {
           className="p-2 rounded border border-[#A6C48A]"
         />
 
+        <select
+          name="status"
+          value={form.status}
+          onChange={handleChange}
+          className="p-2 rounded border border-[#A6C48A]"
+        >
+          <option value="PENDING">Pendiente</option>
+          <option value="COMPLETED">Completada</option>
+          <option value="CANCELLED">Cancelada</option>
+        </select>
+
         <input
+          type="text"
           name="reason"
-          placeholder="Motivo de visita"
+          placeholder="Motivo"
           value={form.reason}
-          onChange={handleChange}
-          className="p-2 rounded border border-[#A6C48A]"
-        />
-
-        <input
-          name="symptoms"
-          placeholder="Síntomas"
-          value={form.symptoms}
-          onChange={handleChange}
-          className="p-2 rounded border border-[#A6C48A]"
-        />
-
-        <input
-          name="diagnosis"
-          placeholder="Diagnóstico"
-          value={form.diagnosis}
-          onChange={handleChange}
-          className="p-2 rounded border border-[#A6C48A]"
-        />
-
-        <input
-          name="treatment"
-          placeholder="Tratamiento"
-          value={form.treatment}
           onChange={handleChange}
           className="p-2 rounded border border-[#A6C48A]"
         />
@@ -188,49 +209,43 @@ export default function MedicalRecords() {
           type="submit"
           className="bg-[#A6C48A] hover:bg-[#90B270] text-[#1F2D17] font-semibold md:col-span-2"
         >
-          {editId ? "Actualizar Registro" : "Registrar Registro"}
+          {editId ? "Actualizar Cita" : "Registrar Cita"}
         </Button>
       </form>
 
-      {/* 🔍 Buscador */}
-      <input
-        type="text"
-        placeholder="Buscar por nombre del paciente..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="p-2 rounded w-full mb-4 text-[#1F2D17] border border-[#A6C48A]"
-      />
-
-      {/* 📋 Lista de registros */}
+      {/* LISTADO */}
       <div className="bg-[#F5F7EB] text-[#1F2D17] p-6 rounded-xl">
-        <h2 className="text-lg font-semibold mb-4">Registros Médicos</h2>
-        {filteredRecords.length === 0 ? (
-          <p>No hay registros médicos.</p>
+        <h2 className="text-lg font-semibold mb-4">
+          Citas Registradas
+        </h2>
+
+        {filteredAppointments.length === 0 ? (
+          <p>No hay citas registradas.</p>
         ) : (
           <ul className="space-y-2">
-            {filteredRecords.map((r) => (
+            {filteredAppointments.map((a) => (
               <li
-                key={r.id}
+                key={a._id}
                 className="border-b border-[#A6C48A] pb-2 flex justify-between items-center"
               >
                 <div>
-                  {/* ✅ Renderizado corregido */}
-                  <strong>
-                    {r.Patient?.name || r.patient?.name || "Paciente sin nombre"}
-                  </strong>{" "}
-                  🩺 {r.reason || "Sin motivo"} —{" "}
-                  {r.diagnosis || "Sin diagnóstico"}
+                  <strong>{a.patient?.name || "Paciente"}</strong> —{" "}
+                  {a.status} 📆{" "}
+                  {a.record_date
+                    ? new Date(a.record_date).toLocaleString()
+                    : "Sin fecha"}
                 </div>
 
                 <div className="space-x-2">
                   <Button
-                    onClick={() => handleEdit(r)}
+                    onClick={() => handleEdit(a)}
                     className="bg-[#A6C48A] text-[#1F2D17]"
                   >
                     Editar
                   </Button>
+
                   <Button
-                    onClick={() => handleDelete(r.id)}
+                    onClick={() => handleDelete(a._id)}
                     className="bg-red-600 hover:bg-red-700 text-white"
                   >
                     Eliminar

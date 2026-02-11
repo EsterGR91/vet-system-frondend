@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "../utils/api";
@@ -6,6 +7,7 @@ import { Button } from "@/components/ui/button";
 
 export default function Owners() {
   const router = useRouter();
+
   const [owners, setOwners] = useState([]);
   const [form, setForm] = useState({
     first_name: "",
@@ -16,74 +18,97 @@ export default function Owners() {
   });
   const [search, setSearch] = useState("");
   const [editId, setEditId] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
   const [error, setError] = useState("");
-  const itemsPerPage = 5;
 
+  // ===============================
   // 🔄 Cargar propietarios
-  const loadOwners = async () => {
+  // ===============================
+  useEffect(() => {
+    const fetchOwners = async () => {
+      try {
+        const res = await api.get("/api/owners");
+        setOwners(res.data);
+      } catch (err) {
+        console.error(err);
+        setError("Error al cargar propietarios");
+      }
+    };
+
+    fetchOwners();
+  }, []);
+
+  const refreshOwners = async () => {
     try {
-      const res = await api.get("/owners");
+      const res = await api.get("/api/owners");
       setOwners(res.data);
-    } catch {
+    } catch (err) {
+      console.error(err);
       setError("Error al cargar propietarios");
     }
   };
 
-  useEffect(() => {
-    const fetchData = async () => await loadOwners();
-    fetchData();
-  }, []);
-
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
-  // Guardar o actualizar propietario
+  // ===============================
+  // 🟢 Guardar o actualizar
+  // ===============================
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     try {
       if (editId) {
-        await api.put(`/owners/${editId}`, form);
+        await api.put(`/api/owners/${editId}`, form);
         setEditId(null);
       } else {
-        await api.post("/owners", form);
+        await api.post("/api/owners", form);
       }
-      setForm({ first_name: "", last_name: "", email: "", phone: "", address: "" });
-      loadOwners();
-    } catch {
+
+      setForm({
+        first_name: "",
+        last_name: "",
+        email: "",
+        phone: "",
+        address: "",
+      });
+
+      refreshOwners();
+    } catch (err) {
+      console.error(err);
       setError("Error al guardar propietario");
     }
   };
 
-  // Editar
   const handleEdit = (owner) => {
-    setForm(owner);
-    setEditId(owner.id);
+    setForm({
+      first_name: owner.first_name || "",
+      last_name: owner.last_name || "",
+      email: owner.email || "",
+      phone: owner.phone || "",
+      address: owner.address || "",
+    });
+
+    setEditId(owner._id);
   };
 
-  // Eliminar con confirmación visual
   const handleDelete = async (id) => {
-    const confirm = window.confirm("¿Seguro que deseas eliminar este propietario?");
-    if (!confirm) return;
+    if (!window.confirm("¿Seguro que deseas eliminar este propietario?"))
+      return;
+
     try {
-      await api.delete(`/owners/${id}`);
-      loadOwners();
-    } catch {
+      await api.delete(`/api/owners/${id}`);
+      refreshOwners();
+    } catch (err) {
+      console.error(err);
       setError("Error al eliminar propietario");
     }
   };
 
-  // Filtrado y paginación
-  const filteredOwners = owners.filter(
-    (o) =>
-      o.first_name.toLowerCase().includes(search.toLowerCase()) ||
-      o.last_name.toLowerCase().includes(search.toLowerCase()) ||
-      o.email?.toLowerCase().includes(search.toLowerCase())
+  const filteredOwners = owners.filter((o) =>
+    `${o.first_name} ${o.last_name} ${o.email || ""}`
+      .toLowerCase()
+      .includes(search.toLowerCase())
   );
-
-  const totalPages = Math.ceil(filteredOwners.length / itemsPerPage);
-  const start = (currentPage - 1) * itemsPerPage;
-  const currentOwners = filteredOwners.slice(start, start + itemsPerPage);
 
   return (
     <div className="min-h-screen bg-[#3D5B37] text-white p-6">
@@ -91,7 +116,6 @@ export default function Owners() {
         👤 Gestión de Propietarios
       </h1>
 
-      {/* 🔙 Botón de volver al dashboard */}
       <Button
         onClick={() => router.push("/dashboard")}
         className="bg-[#A6C48A] hover:bg-[#90B270] text-[#1F2D17] mb-6 font-semibold"
@@ -99,60 +123,32 @@ export default function Owners() {
         ← Volver al Dashboard
       </Button>
 
-      {/* FORMULARIO */}
+      {error && (
+        <div className="bg-red-500 text-white p-2 rounded mb-4">
+          {error}
+        </div>
+      )}
+
+      {/* ================= FORMULARIO ================= */}
       <div className="bg-[#F5F7EB] text-[#1F2D17] p-6 rounded-xl shadow-md mb-8">
         <h2 className="text-lg font-semibold mb-4">
           {editId ? "Editar propietario" : "Registrar nuevo propietario"}
         </h2>
+
         <form onSubmit={handleSubmit} className="grid gap-3 md:grid-cols-2">
-          <input
-            name="first_name"
-            placeholder="Nombre"
-            value={form.first_name}
-            onChange={handleChange}
-            required
-            className="p-2 rounded border border-[#A6C48A]"
-          />
-          <input
-            name="last_name"
-            placeholder="Apellidos"
-            value={form.last_name}
-            onChange={handleChange}
-            required
-            className="p-2 rounded border border-[#A6C48A]"
-          />
-          <input
-            name="email"
-            type="email"
-            placeholder="Correo"
-            value={form.email}
-            onChange={handleChange}
-            className="p-2 rounded border border-[#A6C48A]"
-          />
-          <input
-            name="phone"
-            placeholder="Teléfono"
-            value={form.phone}
-            onChange={handleChange}
-            className="p-2 rounded border border-[#A6C48A]"
-          />
-          <input
-            name="address"
-            placeholder="Dirección"
-            value={form.address}
-            onChange={handleChange}
-            className="p-2 rounded border border-[#A6C48A] md:col-span-2"
-          />
-          <Button
-            type="submit"
-            className="bg-[#A6C48A] hover:bg-[#90B270] text-[#1F2D17] font-semibold md:col-span-2"
-          >
+          <input name="first_name" placeholder="Nombre" value={form.first_name} onChange={handleChange} required className="p-2 rounded border border-[#A6C48A]" />
+          <input name="last_name" placeholder="Apellidos" value={form.last_name} onChange={handleChange} required className="p-2 rounded border border-[#A6C48A]" />
+          <input name="email" type="email" placeholder="Correo" value={form.email} onChange={handleChange} className="p-2 rounded border border-[#A6C48A]" />
+          <input name="phone" placeholder="Teléfono" value={form.phone} onChange={handleChange} className="p-2 rounded border border-[#A6C48A]" />
+          <input name="address" placeholder="Dirección" value={form.address} onChange={handleChange} className="p-2 rounded border border-[#A6C48A] md:col-span-2" />
+
+          <Button type="submit" className="bg-[#A6C48A] hover:bg-[#90B270] text-[#1F2D17] font-semibold md:col-span-2">
             {editId ? "Actualizar" : "Registrar Propietario"}
           </Button>
         </form>
       </div>
 
-      {/* BUSCADOR */}
+      {/* ================= BUSCADOR ================= */}
       <input
         type="text"
         placeholder="Buscar por nombre, apellido o correo..."
@@ -161,59 +157,45 @@ export default function Owners() {
         className="p-2 rounded w-full mb-4 text-[#1F2D17] border border-[#A6C48A]"
       />
 
-      {/* LISTADO */}
+      {/* ================= PANEL DE PROPIETARIOS ================= */}
       <div className="bg-[#F5F7EB] text-[#1F2D17] p-6 rounded-xl shadow-md">
-        <h2 className="text-lg font-semibold mb-3">Lista de propietarios</h2>
-        {currentOwners.length === 0 ? (
+        <h2 className="text-lg font-semibold mb-4">
+          Propietarios Registrados ({filteredOwners.length})
+        </h2>
+
+        {filteredOwners.length === 0 ? (
           <p>No hay propietarios registrados.</p>
         ) : (
-          <ul className="space-y-2">
-            {currentOwners.map((o) => (
-              <li
-                key={o.id}
-                className="border-b border-[#A6C48A] pb-2 flex justify-between items-center"
+          <div className="space-y-3">
+            {filteredOwners.map((o) => (
+              <div
+                key={o._id}
+                className="border border-[#A6C48A] rounded-lg p-4 flex justify-between items-center"
               >
                 <div>
-                  <strong>
+                  <p className="font-semibold">
                     {o.first_name} {o.last_name}
-                  </strong>{" "}
-                  — {o.email || "Sin correo"} 📞 {o.phone || "Sin teléfono"}
+                  </p>
+                  <p className="text-sm">
+                    📧 {o.email || "Sin correo"} | 📞 {o.phone || "Sin teléfono"}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {o.address || "Sin dirección"}
+                  </p>
                 </div>
+
                 <div className="space-x-2">
-                  <Button
-                    onClick={() => handleEdit(o)}
-                    className="bg-[#A6C48A] text-[#1F2D17]"
-                  >
+                  <Button onClick={() => handleEdit(o)} className="bg-[#A6C48A] text-[#1F2D17]">
                     Editar
                   </Button>
-                  <Button
-                    onClick={() => handleDelete(o.id)}
-                    className="bg-red-500 hover:bg-red-600 text-white"
-                  >
+                  <Button onClick={() => handleDelete(o._id)} className="bg-red-500 text-white">
                     Eliminar
                   </Button>
                 </div>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
-      </div>
-
-      {/* PAGINACIÓN */}
-      <div className="flex justify-center mt-4 space-x-2">
-        {Array.from({ length: totalPages }, (_, i) => (
-          <button
-            key={i}
-            onClick={() => setCurrentPage(i + 1)}
-            className={`px-3 py-1 rounded ${
-              currentPage === i + 1
-                ? "bg-[#A6C48A] text-[#1F2D17]"
-                : "bg-[#F5F7EB] text-[#1F2D17]"
-            }`}
-          >
-            {i + 1}
-          </button>
-        ))}
       </div>
     </div>
   );
